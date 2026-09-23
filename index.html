@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#09090b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Local Photo AI">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon.svg">
+<title>Local Photo AI</title>
+<style>
+:root{color-scheme:dark;--bg:#09090b;--card:#141417;--line:#292930;--text:#f6f6f8;--muted:#9999a5;--good:#3ddc84;--warn:#ffca5c;--bad:#ff6b6b}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+main{max-width:720px;margin:auto;padding:20px 16px 40px}header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin:8px 2px 18px}
+h1{font-size:30px;letter-spacing:-.04em;margin:0}.sub{color:var(--muted);font-size:13px;margin-top:6px}.pill{display:flex;gap:7px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:8px 10px;font-size:12px;font-weight:700}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--warn)}.dot.good{background:var(--good)}.dot.bad{background:var(--bad)}
+.card{background:linear-gradient(180deg,#151519,#111114);border:1px solid var(--line);border-radius:20px;padding:16px;margin-bottom:14px}
+.title{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px}.title strong{font-size:15px}.small{font-size:12px;color:var(--muted);line-height:1.45}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.stat{background:#1a1a1f;border:1px solid var(--line);border-radius:14px;padding:11px}.stat span{display:block;color:var(--muted);font-size:10px;letter-spacing:.06em;text-transform:uppercase}.stat b{display:block;margin-top:5px;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.notice{font-size:12px;line-height:1.45;background:#111b15;border:1px solid #20382a;color:#ccebd6;padding:11px 12px;border-radius:13px}.notice.warn{background:#211b11;border-color:#40341a;color:#f6e5b7}
+textarea{width:100%;min-height:130px;background:#0d0d10;color:var(--text);border:1px solid var(--line);border-radius:16px;padding:14px;font-size:16px;line-height:1.4;outline:none;resize:vertical}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.btn{width:100%;border:1px solid var(--line);border-radius:15px;padding:14px 12px;background:#1b1b20;color:var(--text);font-weight:750;font-size:15px}.btn.primary{background:#f1f1f4;color:#111114;border-color:#f1f1f4}.btn.good{background:#133a25;border-color:#215c39;color:#dcffe9}.btn.warn{background:#352b15;border-color:#5b4921;color:#fff1c3}.btn.danger{background:#35191b;border-color:#5f292d;color:#ffd9db}.btn:disabled{opacity:.42}
+label{font-size:12px;color:var(--muted)}input{width:100%;margin-top:6px;border:1px solid var(--line);border-radius:12px;background:#0d0d10;color:var(--text);padding:11px 12px;font-size:16px}
+.progress{height:8px;background:#25252b;border-radius:999px;overflow:hidden;margin-top:12px}.bar{width:0;height:100%;background:#f1f1f4;transition:width .18s}.pt{min-height:18px;color:var(--muted);font-size:12px;margin-top:7px}
+.result{display:none;margin-top:14px}.result.show{display:block}.result img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:18px;border:1px solid var(--line);background:#060607}
+.gallery{display:grid;grid-template-columns:1fr 1fr;gap:10px}.item{overflow:hidden;border:1px solid var(--line);border-radius:15px;background:#0c0c0f}.item img{width:100%;aspect-ratio:1/1;object-fit:cover;display:block}.meta{padding:9px}.meta div{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.meta button{width:100%;margin-top:7px;padding:7px;border-radius:9px;border:1px solid #303038;background:#1c1c21;color:#eee}
+.hidden{display:none!important}details{margin-top:8px}summary{font-size:13px;color:#c8c8ce}footer{text-align:center;color:#777781;font-size:11px;line-height:1.5;padding:6px 10px 20px}
+@media(max-width:390px){h1{font-size:27px}.row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<div><h1>Local Photo AI</h1><div class="sub">iPhone-only • local image generation</div></div>
+<div class="pill"><span id="dot" class="dot"></span><span id="privacy">Checking</span></div>
+</header>
+
+<section class="card">
+<div class="title"><strong>Device</strong><span class="small">alpha v0.1</span></div>
+<div class="grid">
+<div class="stat"><span>WebGPU</span><b id="gpu">Checking…</b></div>
+<div class="stat"><span>Network</span><b id="net">Checking…</b></div>
+<div class="stat"><span>Engine</span><b id="engine">Not loaded</b></div>
+<div class="stat"><span>Privacy</span><b id="lockState">Unlocked</b></div>
+</div>
+</section>
+
+<section class="card">
+<div class="title"><strong>1. Install local engine</strong><span class="small">one-time download</span></div>
+<div class="notice warn">The first load downloads the runtime, tokenizer and open model files. Your prompt and generated image are not sent to a generation server.</div>
+<div class="row"><button id="install" class="btn primary">Install / Load Model</button><button id="verify" class="btn" disabled>Verify Offline</button></div>
+<div class="progress"><div id="bar" class="bar"></div></div><div id="progress" class="pt">Ready.</div>
+</section>
+
+<section class="card">
+<div class="title"><strong>2. Privacy lock</strong><span class="small">network cutoff</span></div>
+<div id="lockNote" class="notice warn">Install and verify first. Offline Lock blocks uncached external requests from this app.</div>
+<div class="row"><button id="lock" class="btn good" disabled>Turn On Offline Lock</button><button id="unlock" class="btn warn hidden">Unlock Downloads</button></div>
+</section>
+
+<section class="card">
+<div class="title"><strong>3. Generate</strong><span class="small">on this iPhone</span></div>
+<textarea id="prompt" placeholder="Describe the photo you want to create…" autocomplete="off"></textarea>
+<div class="row">
+<label>Seed<input id="seed" type="number" min="0" max="4294967295" inputmode="numeric" placeholder="Random"></label>
+<label>Size<input value="512 × 512" disabled></label>
+</div>
+<div class="row"><button id="random" class="btn">Random Seed</button><button id="go" class="btn primary" disabled>Generate Photo</button></div>
+<div id="genStatus" class="pt"></div>
+<div id="result" class="result"><img id="out" alt="Generated image"><div class="row"><button id="share" class="btn">Save / Share</button><button id="again" class="btn primary">Generate Again</button></div></div>
+</section>
+
+<section class="card">
+<div class="title"><strong>Local gallery</strong><button id="clear" class="btn danger" style="width:auto;padding:8px 11px;font-size:12px">Clear</button></div>
+<div id="empty" class="small">No local generations yet.</div><div id="gallery" class="gallery"></div>
+</section>
+
+<section class="card">
+<details><summary>Privacy facts</summary>
+<p class="small">No account, analytics, telemetry, cloud inference API or image-upload endpoint is built into this app. The service worker rejects remote non-GET requests. The local gallery lives in IndexedDB on this iPhone. If you explicitly save a result into Apple Photos, iCloud Photos may sync that copy according to your iPhone settings.</p>
+</details>
+<details><summary>Maintenance</summary><div class="row"><button id="unload" class="btn">Unload RAM</button><button id="purge" class="btn danger">Delete Model Cache</button></div></details>
+</section>
+<footer>Best privacy test: install → verify → Offline Lock → Airplane Mode → generate.</footer>
+</main>
+
+<script type="module">
+const $=id=>document.getElementById(id);
+const ENGINE_URL="https://esm.sh/web-txt2img@0.3.1?bundle&deps=onnxruntime-web@1.30.0,@xenova/transformers@2.17.2";
+const MODEL="sd-turbo";
+let api=null,loaded=false,verified=localStorage.getItem("verified")==="1",locked=false,current=null,currentSeed=0;
+const DB="localpai",STORE="images";
+
+function setP(t,p=null){$("progress").textContent=t;$("bar").style.width=p==null?"0%":Math.max(0,Math.min(100,p))+"%"}
+function setG(t){$("genStatus").textContent=t}
+function updateNet(){$("net").textContent=navigator.onLine?"Online":"Offline"};addEventListener("online",updateNet);addEventListener("offline",updateNet);updateNet();
+
+async function sw(type,extra={}){
+ if(!("serviceWorker" in navigator)) return null;
+ const reg=await navigator.serviceWorker.ready,target=navigator.serviceWorker.controller||reg.active;
+ if(!target) return null;
+ return new Promise(resolve=>{const ch=new MessageChannel();const timer=setTimeout(()=>resolve(null),2000);ch.port1.onmessage=e=>{clearTimeout(timer);resolve(e.data)};target.postMessage({type,...extra},[ch.port2])})
+}
+async function initSW(){
+ if(!("serviceWorker" in navigator)) return;
+ await navigator.serviceWorker.register("./sw.js",{scope:"./"}).catch(()=>{});
+ await navigator.serviceWorker.ready.catch(()=>{});
+ const r=await sw("GET_LOCK");locked=!!r?.locked;uiLock()
+}
+function uiLock(){
+ $("lockState").textContent=locked?"LOCKED":"Unlocked";$("privacy").textContent=locked?"Offline Lock":(navigator.onLine?"Local Mode":"Offline");
+ $("dot").className="dot"+(locked?" good":"");$("lock").classList.toggle("hidden",locked);$("unlock").classList.toggle("hidden",!locked);
+ $("lock").disabled=!verified||locked;$("lockNote").className="notice"+(verified?"":" warn");
+ $("lockNote").textContent=locked?"Offline Lock is ON. Uncached external requests are blocked.":verified?"Offline readiness verified. Turn on Offline Lock when you are ready.":"Install and verify first. Offline Lock blocks uncached external requests."
+}
+async function gpu(){
+ if(!navigator.gpu){$("gpu").textContent="Unavailable";$("gpu").style.color="var(--bad)";return false}
+ try{const a=await navigator.gpu.requestAdapter({powerPreference:"high-performance"});if(!a)throw 0;$("gpu").textContent=a.features?.has?.("shader-f16")?"Ready + FP16":"Ready";$("gpu").style.color="var(--good)";return true}catch{$("gpu").textContent="Unavailable";return false}
+}
+async function runtime(){if(api)return api;setP("Loading inference runtime…");api=await import(ENGINE_URL);return api}
+
+async function load(){
+ $("install").disabled=true;
+ try{
+  const a=await runtime(),caps=await a.detectCapabilities();
+  let res=null;
+  if(caps.webgpu){
+   setP("Trying WebGPU engine…",2);
+   res=await a.loadModel(MODEL,{backendPreference:["webgpu"],onProgress:p=>{const m=p?.bytesDownloaded?(" • "+Math.round(p.bytesDownloaded/1048576)+" MB"):"";setP((p?.message||p?.phase||"Loading")+m,p?.pct)}})
+  }
+  if(!res?.ok){
+   setP("WebGPU engine unavailable; trying WASM fallback…",3);
+   res=await a.loadModel(MODEL,{backendPreference:["wasm"],wasmNumThreads:2,wasmSimd:true,onProgress:p=>{const m=p?.bytesDownloaded?(" • "+Math.round(p.bytesDownloaded/1048576)+" MB"):"";setP((p?.message||p?.phase||"Loading")+m,p?.pct)}})
+  }
+  if(!res?.ok) throw new Error(res?.message||res?.reason||"Engine load failed");
+  loaded=true;localStorage.setItem("installed","1");$("engine").textContent=res.backendUsed==="webgpu"?"WebGPU loaded":"WASM loaded";$("engine").style.color="var(--good)";
+  $("go").disabled=false;$("verify").disabled=false;setP("Engine loaded. Run Verify Offline once.",100)
+ }catch(e){$("engine").textContent="Load failed";$("engine").style.color="var(--bad)";setP(e?.message||String(e))}
+ finally{$("install").disabled=false}
+}
+async function ensure(){if(loaded)return true;await load();return loaded}
+function rand(){const a=new Uint32Array(1);crypto.getRandomValues(a);$("seed").value=String(a[0]);return a[0]}
+$("random").onclick=rand;
+
+async function generate(prompt,seed,checking=false){
+ if(!(await ensure()))throw new Error("Engine is not loaded");
+ const a=await runtime();
+ const r=await a.generateImage({model:MODEL,prompt,seed,width:512,height:512,onProgress:p=>{const n=p?.phase||"Generating";const q=p?.pct!=null?" • "+Math.round(p.pct)+"%":"";checking?setP("Verification: "+n+q,p?.pct):setG(n+q)}});
+ if(!r?.ok)throw new Error(r?.message||r?.reason||"Generation failed");
+ return r.blob
+}
+async function verify(){
+ $("verify").disabled=true;
+ try{setP("Creating one local verification image…",5);const b=await generate("a simple studio photograph of a red apple on a plain table",1,true);if(!b||b.size<1000)throw new Error("Invalid verification image");verified=true;localStorage.setItem("verified","1");$("engine").textContent="Verified";setP("Offline assets verified. You can enable Offline Lock.",100);uiLock()}
+ catch(e){verified=false;localStorage.removeItem("verified");setP("Verification failed: "+(e?.message||e))}
+ finally{$("verify").disabled=!loaded}
+}
+
+function openDB(){return new Promise((ok,no)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains(STORE))d.createObjectStore(STORE,{keyPath:"id",autoIncrement:true})};r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)})}
+async function save(blob,prompt,seed){const d=await openDB();await new Promise((ok,no)=>{const t=d.transaction(STORE,"readwrite");t.objectStore(STORE).add({blob,prompt,seed,ts:Date.now()});t.oncomplete=ok;t.onerror=()=>no(t.error)});d.close()}
+async function rows(){const d=await openDB();const x=await new Promise((ok,no)=>{const r=d.transaction(STORE).objectStore(STORE).getAll();r.onsuccess=()=>ok(r.result||[]);r.onerror=()=>no(r.error)});d.close();return x.sort((a,b)=>b.ts-a.ts).slice(0,20)}
+async function gallery(){
+ const a=await rows(),g=$("gallery");g.innerHTML="";$("empty").classList.toggle("hidden",a.length>0);
+ for(const x of a){const box=document.createElement("div");box.className="item";const im=document.createElement("img"),u=URL.createObjectURL(x.blob);im.src=u;im.onload=()=>URL.revokeObjectURL(u);
+  const m=document.createElement("div");m.className="meta";const p=document.createElement("div");p.textContent=x.prompt;const s=document.createElement("div");s.textContent="seed "+x.seed;const b=document.createElement("button");b.textContent="Share";
+  b.onclick=()=>shareBlob(x.blob,x.seed);m.append(p,s,b);box.append(im,m);g.append(box)}
+}
+async function shareBlob(blob,seed){const f=new File([blob],"local-photo-"+seed+".png",{type:"image/png"});if(navigator.canShare?.({files:[f]}))await navigator.share({files:[f],title:"Local Photo AI"}).catch(()=>{});else{const u=URL.createObjectURL(blob),a=document.createElement("a");a.href=u;a.download=f.name;a.click();setTimeout(()=>URL.revokeObjectURL(u),10000)}}
+async function go(){
+ const p=$("prompt").value.trim(),seed=$("seed").value===""?rand():(Number($("seed").value)>>>0);if(!p){setG("Enter a description first.");return}
+ $("go").disabled=true;try{setG("Starting local generation…");const b=await generate(p,seed);current={blob:b,seed};$("out").src=URL.createObjectURL(b);$("result").classList.add("show");setG("Done. Generated locally.");await save(b,p,seed);await gallery()}catch(e){setG("Generation failed: "+(e?.message||e))}finally{$("go").disabled=!loaded}
+}
+
+$("install").onclick=load;$("verify").onclick=verify;$("go").onclick=go;$("again").onclick=go;$("share").onclick=()=>current&&shareBlob(current.blob,current.seed);
+$("lock").onclick=async()=>{if(!verified)return;const r=await sw("SET_LOCK",{locked:true});locked=!!r?.locked;uiLock();setP("Offline Lock ON. Turn on Airplane Mode and generate another image.")};
+$("unlock").onclick=async()=>{const r=await sw("SET_LOCK",{locked:false});locked=!!r?.locked;uiLock();setP("Downloads unlocked.")};
+$("clear").onclick=async()=>{if(!confirm("Delete all images from the app's local gallery?"))return;const d=await openDB();await new Promise((ok,no)=>{const t=d.transaction(STORE,"readwrite");t.objectStore(STORE).clear();t.oncomplete=ok;t.onerror=()=>no(t.error)});d.close();gallery()};
+$("unload").onclick=async()=>{try{const a=await runtime();await a.unloadModel(MODEL);loaded=false;$("engine").textContent="Cached";$("go").disabled=true;setP("Unloaded from RAM; downloaded cache kept.")}catch(e){setP(e?.message||String(e))}};
+$("purge").onclick=async()=>{if(locked){setP("Unlock downloads before deleting the model cache.");return}if(!confirm("Delete downloaded model cache?"))return;try{const a=await runtime();await a.purgeModelCache(MODEL);loaded=false;verified=false;localStorage.removeItem("installed");localStorage.removeItem("verified");$("engine").textContent="Not loaded";$("go").disabled=true;$("verify").disabled=true;setP("Model cache deleted.");uiLock()}catch(e){setP(e?.message||String(e))}};
+
+(async()=>{await initSW();await gpu();await gallery();if(localStorage.getItem("installed")==="1"){$("engine").textContent=verified?"Cached + verified":"Cached";$("go").disabled=false;$("verify").disabled=false}uiLock()})();
+</script>
+</body></html>
