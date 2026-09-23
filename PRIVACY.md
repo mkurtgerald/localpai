@@ -1,28 +1,45 @@
-# Privacy Design
+# Privacy Design — Strict Local v0.2
 
-Local Photo AI is designed around one rule: generation data stays on the phone.
+The generator is intentionally unusable until the application has completed a fixed, non-personal verification generation and automatically sealed its network path.
 
-## Local data
-The following are stored locally in browser storage:
-- prompt text associated with local gallery entries
-- seeds
-- generated PNG blobs
-- local gallery history
-- model/runtime cache state
+## Before the seal
+Setup mode may download only:
+- the app shell from this repository's Pages origin;
+- the pinned JavaScript inference runtime from esm.sh;
+- open tokenizer/model files from the explicitly allow-listed model hosts.
 
-## Network use before Offline Lock
-The app may make GET requests to download:
-- JavaScript inference runtime files
-- tokenizer files
-- open model files
+The prompt field and generator are disabled during this phase. No personal photo input exists in the current build.
 
-The service worker blocks remote non-GET requests.
+## After the seal
+The service worker becomes cache-only for **every origin, including the app's own origin**.
 
-## Offline Lock
-After you install and verify the engine, Offline Lock blocks uncached external requests from the app.
+A GET request that is not already cached receives a local 503 response.
+Any non-GET request receives a local 403 response.
+WebSocket, EventSource and sendBeacon are disabled by the application.
 
-## No remote inference endpoint
-This codebase has no backend endpoint that accepts a prompt or reference image and returns a generated image.
+This means leaving Wi-Fi or cellular enabled does not reopen an application network path while generation is enabled.
 
-## iCloud Photos
-The app's local gallery is separate from Apple's Photos library. If you use Save / Share and save a generated image into Photos, iOS/iCloud behavior is controlled by your iPhone settings, not by this app.
+## Generated images
+Strict mode intentionally keeps generated image blobs only in JavaScript memory for the current app session.
+
+It does **not**:
+- write generated images to IndexedDB;
+- write them to localStorage;
+- save them to Apple Photos;
+- save them to Files or iCloud Drive;
+- expose a Share button;
+- send them to an inference server.
+
+The in-memory session gallery is destroyed when the page/app session closes or when Reset is used.
+
+## Reset
+Reset first destroys:
+- generated image object URLs;
+- the current rendered result;
+- prompt text and seed;
+- loaded model state.
+
+Only after that destruction does it reopen setup/download mode.
+
+## Scope of the guarantee
+This design protects against network transmission by the Local Photo AI web application itself. It cannot make guarantees about unrelated operating-system behavior, device compromise, browser vulnerabilities, manual screenshots, or content a user deliberately transfers outside the application.
