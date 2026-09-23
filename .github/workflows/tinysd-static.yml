@@ -1,0 +1,39 @@
+name: Tiny-SD static gate
+
+on:
+  push:
+    branches:
+      - engine-tinysd-q4f16
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  static-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: JavaScript syntax
+        run: |
+          node --check tiny_engine.js
+          node --check tiny_app.js
+          node --check sw.js
+      - name: Privacy invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'strict-v5-tinysd' sw.js
+          grep -q 'r.method!=="GET"' sw.js
+          grep -q 'Strict local seal: uncached request blocked' sw.js
+          grep -q '__egress_probe_' tiny_app.js
+          grep -q 'await tiny.unload()' tiny_app.js
+          grep -q 'await tiny.loadFromCache' tiny_app.js
+          ! grep -q 'navigator.share' tiny_app.js
+          ! grep -q 'indexedDB' tiny_app.js
+          ! grep -q 'sendBeacon(' tiny_app.js
