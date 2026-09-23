@@ -1,7 +1,8 @@
 const $=id=>document.getElementById(id);
 const ENGINE_URL="https://esm.sh/web-txt2img@0.3.1?bundle&deps=onnxruntime-web@1.30.0,@xenova/transformers@2.17.2";
 const MODEL="sd-turbo";
-let api=null,loaded=false,verified=localStorage.getItem("verified-v3")==="1",locked=false,currentUrl=null;
+const PRIVACY_WORKER_VERSION="strict-v4";
+let api=null,loaded=false,verified=localStorage.getItem("verified-v4")==="1",locked=false,currentUrl=null;
 let sessionGallery=[];
 
 // Disable browser network APIs the inference stack does not need.
@@ -16,20 +17,44 @@ function updateNet(){$("net").textContent=navigator.onLine?"Online (OK if sealed
 
 async function sw(type,extra={}){
  if(!("serviceWorker" in navigator))return null;
- const reg=await navigator.serviceWorker.ready;
- const target=navigator.serviceWorker.controller||reg.active;
+ const target=navigator.serviceWorker.controller;
  if(!target)return null;
  return new Promise(resolve=>{
-  const ch=new MessageChannel(),timer=setTimeout(()=>resolve(null),2500);
+  const ch=new MessageChannel(),timer=setTimeout(()=>resolve(null),3000);
   ch.port1.onmessage=e=>{clearTimeout(timer);resolve(e.data)};
   target.postMessage({type,...extra},[ch.port2])
  });
 }
+function waitForControllerChange(timeout=12000){
+ return new Promise(resolve=>{
+  let done=false;
+  const finish=()=>{if(done)return;done=true;resolve(true)};
+  const timer=setTimeout(()=>{if(done)return;done=true;resolve(false)},timeout);
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{clearTimeout(timer);finish()},{once:true});
+ });
+}
+async function workerStatus(){
+ const s=await sw("GET_STATUS");
+ return s||{version:null,locked:false};
+}
 async function initSW(){
  if(!("serviceWorker" in navigator))throw new Error("Service workers unavailable");
- await navigator.serviceWorker.register("./sw.js?v=3",{scope:"./"});
- await navigator.serviceWorker.ready;
- const r=await sw("GET_LOCK");locked=!!r?.locked;ui()
+ setP("Starting current privacy worker…");
+ const reg=await navigator.serviceWorker.register("./sw.js?v=4",{scope:"./",updateViaCache:"none"});
+ await reg.update().catch(()=>{});
+
+ // v4 calls skipWaiting itself. If an older worker controls this page, wait for
+ // controllerchange so all later privacy messages go to the exact v4 worker.
+ let status=await workerStatus();
+ if(status?.version!==PRIVACY_WORKER_VERSION){
+  await waitForControllerChange();
+  status=await workerStatus();
+ }
+ if(status?.version!==PRIVACY_WORKER_VERSION){
+  throw new Error("Privacy worker v4 did not take control. Close and reopen this page once.");
+ }
+ locked=!!status.locked;
+ ui();
 }
 function ui(){
  const sealed=locked&&verified;
@@ -79,7 +104,7 @@ async function load(){
    }})
   }
   if(!res?.ok)throw new Error(res?.message||res?.reason||"Engine load failed");
-  loaded=true;localStorage.setItem("installed-v3","1");
+  loaded=true;localStorage.setItem("installed-v4","1");
   $("engine").textContent=(res.backendUsed==="webgpu"?"WebGPU":"WASM")+" loaded";
   $("engine").style.color="var(--good)";$("verify").disabled=false;
   setP("Engine loaded. Tap Verify & Seal. The test uses a fixed non-personal prompt.",100)
@@ -105,28 +130,42 @@ async function rawGenerate(prompt,seed,checking=false){
 async function verifyAndSeal(){
  $("verify").disabled=true;$("install").disabled=true;
  try{
-  setP("Stage 1/2: fixed local test while setup downloads are allowed…",5);
+  const before=await workerStatus();
+  if(before?.version!==PRIVACY_WORKER_VERSION)throw new Error("Current privacy worker is not v4");
+
+  setP("Stage 1/3: fixed local test while setup downloads are allowed…",5);
   const b1=await rawGenerate("a simple studio photograph of a red apple on a plain table",1,true);
   if(!b1||b1.size<1000)throw new Error("Setup verification returned an invalid image");
 
-  setP("Stage 1 passed. Sealing every uncached network request…",55);
+  setP("Stage 2/3: sealing network access…",50);
   const seal=await sw("SET_LOCK",{locked:true});
-  locked=!!seal?.locked;
-  if(!locked)throw new Error("Network seal could not be confirmed");
+  if(!seal?.locked||seal?.version!==PRIVACY_WORKER_VERSION)throw new Error("Privacy worker did not confirm the seal");
+  const confirmed=await workerStatus();
+  locked=!!confirmed?.locked;
+  if(confirmed?.version!==PRIVACY_WORKER_VERSION||!locked)throw new Error("Seal confirmation failed");
   ui();
 
-  setP("Stage 2/2: generating again with the network already sealed…",65);
+  setP("Stage 2/3: proving an uncached network request is blocked…",60);
+  const probeUrl="./__privacy_probe_"+Date.now()+"_"+Math.random().toString(36).slice(2);
+  const probe=await fetch(probeUrl,{cache:"no-store"});
+  const probeText=await probe.text().catch(()=> "");
+  if(probe.status!==503||!probeText.includes("Strict local seal")){
+    throw new Error("Egress probe was not blocked by the privacy worker");
+  }
+
+  setP("Stage 3/3: generating again with the network already sealed…",70);
   const b2=await rawGenerate("a simple studio photograph of a blue ceramic cup on a plain table",2,true);
   if(!b2||b2.size<1000)throw new Error("Sealed verification returned an invalid image");
 
-  verified=true;localStorage.setItem("verified-v3","1");
+  verified=true;localStorage.setItem("verified-v4","1");
   $("engine").textContent="Verified + sealed";
   setP("SEALED TEST PASSED. Personal generation is now enabled.",100);
   ui()
  }catch(e){
-  verified=false;localStorage.removeItem("verified-v3");
+  verified=false;localStorage.removeItem("verified-v4");
+  const s=await workerStatus().catch(()=>null);
+  locked=!!s?.locked;
   setP("Verification/seal failed: "+(e?.message||e));
-  // Stay fail-closed if sealing already happened.
   ui()
  }finally{$("install").disabled=false;$("verify").disabled=!loaded}
 }
@@ -178,7 +217,7 @@ async function reset(){
  // Remove sensitive runtime state before network is reopened.
  try{if(api)await api.unloadModel(MODEL)}catch{}
  api=null;loaded=false;verified=false;
- localStorage.removeItem("verified-v3");localStorage.removeItem("installed-v3");
+ localStorage.removeItem("verified-v4");localStorage.removeItem("installed-v4");
  const r=await sw("SET_LOCK",{locked:false});locked=!!r?.locked;
  $("engine").textContent="Not loaded";$("engine").style.color="";
  setP("Session destroyed. Setup/download mode reopened.");ui()
@@ -190,7 +229,7 @@ window.addEventListener("pagehide",clearRendered);
 (async()=>{
  try{
   await initSW();await gpu();
-  const installed=localStorage.getItem("installed-v3")==="1";
+  const installed=localStorage.getItem("installed-v4")==="1";
   if(locked&&verified&&installed){
     $("engine").textContent="Cached + sealed";$("engine").style.color="var(--good)";
     setP("Privacy gate already sealed. Cached model will load on first generation.",100)
