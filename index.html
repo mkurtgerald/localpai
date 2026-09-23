@@ -4,26 +4,102 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#09090b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Local Photo AI">
+<meta http-equiv="Content-Security-Policy" content="
+ default-src 'self';
+ script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval';
+ style-src 'self' 'unsafe-inline';
+ img-src 'self' blob: data:;
+ connect-src 'self' https://cdn.jsdelivr.net https://huggingface.co https://*.huggingface.co https://*.hf.co https://*.xethub.hf.co https://*.xethub.com;
+ worker-src 'self' blob:;
+ media-src 'none';
+ object-src 'none';
+ frame-src 'none';
+ child-src 'none';
+ font-src 'self';
+ manifest-src 'self';
+ form-action 'none';
+ base-uri 'none';
+">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon.svg">
 <title>Local Photo AI</title>
 <style>
-:root{color-scheme:dark;--bg:#09090b;--card:#151519;--line:#2a2a31;--text:#f6f6f8;--muted:#9b9ba6;--warn:#ffca5c}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif}
-main{max-width:680px;margin:auto;padding:28px 18px}.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:20px;margin-top:18px}
-h1{font-size:30px;letter-spacing:-.04em;margin:0}.sub{color:var(--muted);margin-top:7px}.pill{display:inline-block;margin-top:16px;padding:8px 11px;border-radius:999px;background:#2a2413;color:#ffe8a2;font-size:12px;font-weight:700}
-p{line-height:1.55}.small{color:var(--muted);font-size:13px}b{color:#fff}
+:root{color-scheme:dark;--bg:#09090b;--card:#141417;--line:#292930;--text:#f6f6f8;--muted:#9999a5;--good:#3ddc84;--warn:#ffca5c;--bad:#ff6b6b}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+main{max-width:720px;margin:auto;padding:20px 16px 40px}header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin:8px 2px 18px}
+h1{font-size:30px;letter-spacing:-.04em;margin:0}.sub{color:var(--muted);font-size:13px;margin-top:6px}.pill{display:flex;gap:7px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:8px 10px;font-size:12px;font-weight:700}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--warn)}.dot.good{background:var(--good)}.dot.bad{background:var(--bad)}
+.card{background:linear-gradient(180deg,#151519,#111114);border:1px solid var(--line);border-radius:20px;padding:16px;margin-bottom:14px}.title{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px}.title strong{font-size:15px}.small{font-size:12px;color:var(--muted);line-height:1.5}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.stat{background:#1a1a1f;border:1px solid var(--line);border-radius:14px;padding:11px}.stat span{display:block;color:var(--muted);font-size:10px;letter-spacing:.06em;text-transform:uppercase}.stat b{display:block;margin-top:5px;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.notice{font-size:12px;line-height:1.5;background:#111b15;border:1px solid #20382a;color:#ccebd6;padding:11px 12px;border-radius:13px}.notice.warn{background:#211b11;border-color:#40341a;color:#f6e5b7}.notice.bad{background:#291415;border-color:#592528;color:#ffd5d6}
+textarea{width:100%;min-height:130px;background:#0d0d10;color:var(--text);border:1px solid var(--line);border-radius:16px;padding:14px;font-size:16px;line-height:1.4;outline:none;resize:vertical}textarea:disabled,input:disabled{opacity:.5}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.btn{width:100%;border:1px solid var(--line);border-radius:15px;padding:14px 12px;background:#1b1b20;color:var(--text);font-weight:750;font-size:15px}.btn.primary{background:#f1f1f4;color:#111114;border-color:#f1f1f4}.btn.danger{background:#35191b;border-color:#5f292d;color:#ffd9db}.btn:disabled{opacity:.42}
+label{font-size:12px;color:var(--muted)}input{width:100%;margin-top:6px;border:1px solid var(--line);border-radius:12px;background:#0d0d10;color:var(--text);padding:11px 12px;font-size:16px}
+.progress{height:8px;background:#25252b;border-radius:999px;overflow:hidden;margin-top:12px}.bar{width:0;height:100%;background:#f1f1f4;transition:width .18s}.pt{min-height:18px;color:var(--muted);font-size:12px;margin-top:7px;white-space:pre-wrap}
+.result{display:none;margin-top:14px}.result.show{display:block}.result img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:18px;border:1px solid var(--line);background:#060607}
+.gallery{display:grid;grid-template-columns:1fr 1fr;gap:10px}.item{overflow:hidden;border:1px solid var(--line);border-radius:15px;background:#0c0c0f}.item img{width:100%;aspect-ratio:1/1;object-fit:cover;display:block}.meta{padding:9px}.meta div{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hidden{display:none!important}details{margin-top:8px}summary{font-size:13px;color:#c8c8ce}footer{text-align:center;color:#777781;font-size:11px;line-height:1.5;padding:6px 10px 20px}
+@media(max-width:390px){h1{font-size:27px}.row{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <main>
-<h1>Local Photo AI</h1>
-<div class="sub">iPhone-only • local generation</div>
-<div class="pill">ENGINE MIGRATION</div>
+<header>
+<div><h1>Local Photo AI</h1><div class="sub">Tiny‑SD • iPhone-only • strict local</div></div>
+<div class="pill"><span id="dot" class="dot"></span><span id="privacy">Setup</span></div>
+</header>
+
 <section class="card">
-<p><b>Do not reinstall the old model.</b></p>
-<p>The previous SD‑Turbo / web-txt2img engine has been retired for iPhone because its browser runtime is not reliable enough on Safari/iOS.</p>
-<p>WebGPU on this iPhone was confirmed working. The next engine target is a much smaller mobile-oriented model/runtime path instead of the multi‑GB SD‑Turbo browser stack.</p>
-<p class="small">No personal prompt or image input is enabled on this page. Nothing here performs cloud inference.</p>
+<div class="title"><strong>Device & privacy</strong><span class="small">v0.5 Tiny‑SD</span></div>
+<div class="grid">
+<div class="stat"><span>WebGPU</span><b id="gpu">Checking…</b></div>
+<div class="stat"><span>Network</span><b id="net">Checking…</b></div>
+<div class="stat"><span>Engine</span><b id="engine">Not installed</b></div>
+<div class="stat"><span>App egress</span><b id="lockState">SETUP ONLY</b></div>
+</div>
 </section>
+
+<section class="card" id="setupCard">
+<div class="title"><strong>1. Install Tiny engine</strong><span class="small">~640 MB text-to-image payload</span></div>
+<div class="notice warn">No personal input is available during setup. This downloads the q4f16 Tiny‑SD text encoder, UNet, VAE decoder, tokenizer files, and the pinned local inference runtime.</div>
+<div class="row"><button id="install" class="btn primary">Install Tiny Engine</button><button id="verify" class="btn" disabled>Verify & Seal</button></div>
+<div class="progress"><div id="bar" class="bar"></div></div>
+<div id="progress" class="pt">Ready.</div>
+</section>
+
+<section class="card">
+<div class="title"><strong>2. Generate</strong><span class="small">unlocks only after sealed re-load test</span></div>
+<div id="sealedNotice" class="notice bad">Generation is locked until the engine proves it can unload, reload from local cache, and generate while network-sealed.</div>
+<textarea id="prompt" placeholder="Describe the photo you want to create…" autocomplete="off" disabled></textarea>
+<div class="row">
+<label>Seed<input id="seed" type="number" min="0" max="4294967295" inputmode="numeric" placeholder="Random" disabled></label>
+<label>Steps<input id="steps" type="number" min="4" max="12" value="6" disabled></label>
+</div>
+<div class="row"><button id="random" class="btn" disabled>Random Seed</button><button id="go" class="btn primary" disabled>Generate Photo</button></div>
+<div id="genStatus" class="pt"></div>
+<div id="result" class="result"><img id="out" alt="Generated image"><div class="small" style="margin-top:8px">Strict mode keeps results only in this app session memory. No Save/Share path is enabled yet.</div></div>
+</section>
+
+<section class="card">
+<div class="title"><strong>Session gallery</strong><span class="small">RAM only</span></div>
+<div id="empty" class="small">No local generations yet.</div><div id="gallery" class="gallery"></div>
+</section>
+
+<section class="card">
+<details open><summary>Privacy design</summary>
+<p class="small">Personal generation cannot run in setup mode. Verify & Seal first performs a harmless test, seals the service worker, deliberately proves an uncached request is blocked, unloads all model sessions, reloads the model from browser cache while sealed, and generates a second harmless test. Only then is your prompt enabled.</p>
+</details>
+<details><summary>Reset / reinstall</summary>
+<p class="small">Reset destroys the in-memory image session and prompt before reopening network-enabled setup.</p>
+<button id="reset" class="btn danger">Destroy Session & Reopen Setup</button>
+</details>
+</section>
+
+<footer>Model: cursedhelm/aderpy-deepdreamer-onnx → tiny-sd-web-q4f16. No cloud inference endpoint.</footer>
 </main>
+<script type="module" src="./tiny_app.js?v=5"></script>
 </body>
 </html>
