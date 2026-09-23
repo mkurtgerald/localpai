@@ -1,8 +1,8 @@
-const SHELL="localpai-shell-v3";
-const RUNTIME="localpai-runtime-v3";
-const META="localpai-meta-v3";
-const ASSETS=["./","./index.html","./app.js?v=3","./manifest.webmanifest","./icon.svg"];
-const LOCK_KEY=new Request(new URL("./__strict_lock_v3__",self.location.href));
+const VERSION="strict-v4";
+const SHELL="localpai-shell-v4";
+const META="localpai-meta-v4";
+const ASSETS=["./","./index.html","./app.js?v=4","./manifest.webmanifest","./icon.svg"];
+const LOCK_KEY=new Request(new URL("./__strict_lock_v4__",self.location.href));
 let lockState=false;
 
 async function readPersistedLock(){
@@ -12,7 +12,7 @@ async function readPersistedLock(){
 async function setLocked(v){
  lockState=!!v;
  const c=await caches.open(META);
- if(lockState) await c.put(LOCK_KEY,new Response("1",{headers:{"content-type":"text/plain"}}));
+ if(lockState)await c.put(LOCK_KEY,new Response("1",{headers:{"content-type":"text/plain"}}));
  else await c.delete(LOCK_KEY);
  return lockState;
 }
@@ -30,26 +30,35 @@ self.addEventListener("activate",e=>{
 });
 
 self.addEventListener("message",e=>{
- const m=e.data||{},reply=v=>e.ports?.[0]?.postMessage(v);
- if(m.type==="GET_LOCK") reply({locked:lockState});
- if(m.type==="SET_LOCK") e.waitUntil(setLocked(!!m.locked).then(v=>reply({locked:v})));
+ const m=e.data||{};
+ const reply=v=>e.ports?.[0]?.postMessage(v);
+ if(m.type==="GET_STATUS")reply({version:VERSION,locked:lockState});
+ if(m.type==="SET_LOCK"){
+  e.waitUntil(setLocked(!!m.locked).then(v=>reply({version:VERSION,locked:v})));
+ }
+ if(m.type==="SKIP_WAITING"){
+  e.waitUntil(self.skipWaiting().then(()=>reply({version:VERSION,ok:true})));
+ }
 });
 
 self.addEventListener("fetch",e=>{
  const r=e.request;
 
- // No network writes from the controlled app, in setup or sealed mode.
+ // Network writes are never allowed from this app.
  if(r.method!=="GET"){
   e.respondWith(new Response("Network write blocked by Local Photo AI.",{status:403}));
   return;
  }
 
- // SEALED MODE: cache-only for every origin. A missing asset fails closed.
+ // SEALED MODE: every request is cache-only. Any cache miss fails locally.
  if(lockState){
   e.respondWith((async()=>{
    const hit=await caches.match(r);
    if(hit)return hit;
-   return new Response("Strict local seal: uncached request blocked.",{status:503});
+   return new Response("Strict local seal: uncached request blocked.",{
+    status:503,
+    headers:{"content-type":"text/plain","x-localpai-seal":VERSION}
+   });
   })());
   return;
  }
@@ -69,7 +78,7 @@ self.addEventListener("fetch",e=>{
      c.put(r,res.clone()).catch(()=>{});
     }
     return res;
-   }catch(err){
+   }catch{
     if(r.mode==="navigate")return (await caches.match("./index.html"))||new Response("Offline",{status:503});
     return new Response("Local shell load failed.",{status:503});
    }
@@ -77,8 +86,7 @@ self.addEventListener("fetch",e=>{
   return;
  }
 
- // SETUP MODE: do not intercept cross-origin GETs. The browser handles the
- // model/runtime download normally while personal input remains disabled.
- // This avoids service-worker/CORS interference. Once sealed, the branch above
- // blocks every uncached request regardless of origin.
+ // SETUP MODE: cross-origin GETs pass through untouched so model/runtime
+ // downloads cannot be broken by the privacy worker. Personal input is disabled
+ // until sealed verification is complete.
 });
