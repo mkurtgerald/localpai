@@ -1,7 +1,7 @@
 const $=id=>document.getElementById(id);
 const ENGINE_URL="https://esm.sh/web-txt2img@0.3.1?bundle&deps=onnxruntime-web@1.30.0,@xenova/transformers@2.17.2";
 const MODEL="sd-turbo";
-let api=null,loaded=false,verified=localStorage.getItem("verified-v2")==="1",locked=false,currentUrl=null;
+let api=null,loaded=false,verified=localStorage.getItem("verified-v3")==="1",locked=false,currentUrl=null;
 let sessionGallery=[];
 
 // Disable browser network APIs the inference stack does not need.
@@ -27,7 +27,7 @@ async function sw(type,extra={}){
 }
 async function initSW(){
  if(!("serviceWorker" in navigator))throw new Error("Service workers unavailable");
- await navigator.serviceWorker.register("./sw.js",{scope:"./"});
+ await navigator.serviceWorker.register("./sw.js?v=3",{scope:"./"});
  await navigator.serviceWorker.ready;
  const r=await sw("GET_LOCK");locked=!!r?.locked;ui()
 }
@@ -79,7 +79,7 @@ async function load(){
    }})
   }
   if(!res?.ok)throw new Error(res?.message||res?.reason||"Engine load failed");
-  loaded=true;localStorage.setItem("installed-v2","1");
+  loaded=true;localStorage.setItem("installed-v3","1");
   $("engine").textContent=(res.backendUsed==="webgpu"?"WebGPU":"WASM")+" loaded";
   $("engine").style.color="var(--good)";$("verify").disabled=false;
   setP("Engine loaded. Tap Verify & Seal. The test uses a fixed non-personal prompt.",100)
@@ -105,20 +105,29 @@ async function rawGenerate(prompt,seed,checking=false){
 async function verifyAndSeal(){
  $("verify").disabled=true;$("install").disabled=true;
  try{
-  setP("Running fixed local verification image…",5);
-  const b=await rawGenerate("a simple studio photograph of a red apple on a plain table",1,true);
-  if(!b||b.size<1000)throw new Error("Verification returned an invalid image");
-  // Do not keep the verification image.
-  verified=true;localStorage.setItem("verified-v2","1");
-  setP("Verification passed. Sealing every uncached network request…",98);
-  const r=await sw("SET_LOCK",{locked:true});
-  locked=!!r?.locked;
+  setP("Stage 1/2: fixed local test while setup downloads are allowed…",5);
+  const b1=await rawGenerate("a simple studio photograph of a red apple on a plain table",1,true);
+  if(!b1||b1.size<1000)throw new Error("Setup verification returned an invalid image");
+
+  setP("Stage 1 passed. Sealing every uncached network request…",55);
+  const seal=await sw("SET_LOCK",{locked:true});
+  locked=!!seal?.locked;
   if(!locked)throw new Error("Network seal could not be confirmed");
+  ui();
+
+  setP("Stage 2/2: generating again with the network already sealed…",65);
+  const b2=await rawGenerate("a simple studio photograph of a blue ceramic cup on a plain table",2,true);
+  if(!b2||b2.size<1000)throw new Error("Sealed verification returned an invalid image");
+
+  verified=true;localStorage.setItem("verified-v3","1");
   $("engine").textContent="Verified + sealed";
-  setP("Privacy gate sealed. Generation is now enabled.",100);ui()
+  setP("SEALED TEST PASSED. Personal generation is now enabled.",100);
+  ui()
  }catch(e){
-  verified=false;localStorage.removeItem("verified-v2");
-  setP("Verification/seal failed: "+(e?.message||e));ui()
+  verified=false;localStorage.removeItem("verified-v3");
+  setP("Verification/seal failed: "+(e?.message||e));
+  // Stay fail-closed if sealing already happened.
+  ui()
  }finally{$("install").disabled=false;$("verify").disabled=!loaded}
 }
 function rand(){
@@ -169,7 +178,7 @@ async function reset(){
  // Remove sensitive runtime state before network is reopened.
  try{if(api)await api.unloadModel(MODEL)}catch{}
  api=null;loaded=false;verified=false;
- localStorage.removeItem("verified-v2");localStorage.removeItem("installed-v2");
+ localStorage.removeItem("verified-v3");localStorage.removeItem("installed-v3");
  const r=await sw("SET_LOCK",{locked:false});locked=!!r?.locked;
  $("engine").textContent="Not loaded";$("engine").style.color="";
  setP("Session destroyed. Setup/download mode reopened.");ui()
@@ -181,7 +190,7 @@ window.addEventListener("pagehide",clearRendered);
 (async()=>{
  try{
   await initSW();await gpu();
-  const installed=localStorage.getItem("installed-v2")==="1";
+  const installed=localStorage.getItem("installed-v3")==="1";
   if(locked&&verified&&installed){
     $("engine").textContent="Cached + sealed";$("engine").style.color="var(--good)";
     setP("Privacy gate already sealed. Cached model will load on first generation.",100)
