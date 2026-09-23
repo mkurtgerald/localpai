@@ -1,38 +1,26 @@
 # Local Photo AI
 
-Phone-only, local-first image generation for iPhone.
+Phone-only image generation for iPhone with a hardened strict-local privacy gate.
 
-## Goals
-- No cloud inference API
-- No account
-- No analytics or telemetry
-- Prompts and generated images remain on-device
-- One-time runtime/model download, then offline-capable operation
-- Installable from Safari as a Home Screen web app
-
-## Current alpha
-The current engine uses SD-Turbo through a browser ONNX runtime. It prefers WebGPU and falls back to WASM if the WebGPU execution provider cannot initialize.
-
-The app shell is small; model weights are the large part.
-
-## Privacy
-Generated images are stored in this site's IndexedDB. They are not committed to this repository and are not uploaded to an image-generation service.
-
-If you explicitly save an image to the iOS Photos library and iCloud Photos is enabled, iOS may sync that saved copy independently of this app.
+## v0.2 privacy model
+- Generation is disabled during all network-enabled setup.
+- Setup performs one fixed non-personal test generation.
+- On success, the app automatically switches its service worker to cache-only mode.
+- Generation becomes available only after that network seal is confirmed.
+- Once sealed, every uncached request is blocked even if Wi-Fi/cellular remain on.
+- Generated images are RAM-only and disappear when the app session closes.
+- No Save/Share button is enabled in strict mode.
+- No IndexedDB photo gallery is used.
 
 See [PRIVACY.md](PRIVACY.md).
 
-## Deploy
-This repository is intended to be served as a static HTTPS site, e.g. with GitHub Pages.
+## Engine
+Current alpha uses SD-Turbo via browser ONNX execution, preferring WebGPU with a WASM fallback.
 
-After Pages is enabled, open the Pages URL on the iPhone in Safari, then Share → Add to Home Screen.
+## Important limitation
+This is still an alpha browser inference stack. The target iPhone must prove that the entire runtime/model set is cached and can generate after the network seal. If any required asset was not cached during verification, strict mode will fail closed rather than silently fetch it.
 
-Inside the app:
-1. Install / Load Model
-2. Verify Offline Readiness
-3. Turn On Offline Lock
-4. Enable Airplane Mode
-5. Generate again to prove the local path works
+## Deployment
+Serve this repository over HTTPS with GitHub Pages. Open it in Safari, add it to the Home Screen, install/load the engine, then tap **Verify & Seal**.
 
-## Status
-Alpha. Safari/WebGPU/ONNX compatibility on the target iPhone still needs live-device validation.
+After sealing, leaving the phone online is allowed from the app's perspective; Airplane Mode remains an independent test that the cached inference path is actually complete.
