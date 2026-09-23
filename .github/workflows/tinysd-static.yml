@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - engine-tinysd-q4f16
+      - engine-tinysd-q4f16-v2
   pull_request:
     branches:
       - main
