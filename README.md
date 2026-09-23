@@ -1,26 +1,29 @@
-# Local Photo AI
+# Local Photo AI — Tiny-SD iPhone engine
 
-Phone-only image generation for iPhone with a hardened strict-local privacy gate.
+The previous multi-GB SD-Turbo browser path was retired after repeated end-of-install failures on iPhone.
 
-## v0.2 privacy model
-- Generation is disabled during all network-enabled setup.
-- Setup performs one fixed non-personal test generation.
-- On success, the app automatically switches its service worker to cache-only mode.
-- Generation becomes available only after that network seal is confirmed.
-- Once sealed, every uncached request is blocked even if Wi-Fi/cellular remain on.
-- Generated images are RAM-only and disappear when the app session closes.
-- No Save/Share button is enabled in strict mode.
-- No IndexedDB photo gallery is used.
+## Current engine candidate
+- Model: `cursedhelm/aderpy-deepdreamer-onnx/tiny-sd-web-q4f16`
+- Base: `segmind/tiny-sd`
+- Runtime payload used for text-to-image: ~635 MB plus runtime/tokenizer overhead
+- Quantization: 4-bit weights with FP16 execution
+- Browser runtime: pinned ONNX Runtime Web 1.30.0 WebGPU build
+- Required device feature: WebGPU `shader-f16`
 
-See [PRIVACY.md](PRIVACY.md).
+The model repository describes the q4f16 variant as 707 MB including VAE encoder; this app does not download the VAE encoder for text-to-image, reducing the payload. The text encoder is about 69.6 MB, UNet about 466 MB, and VAE decoder about 97.6 MB.
 
-## Engine
-Current alpha uses SD-Turbo via browser ONNX execution, preferring WebGPU with a WASM fallback.
+## Privacy gate
+Personal input is disabled during all network-enabled setup.
 
-## Important limitation
-This is still an alpha browser inference stack. The target iPhone must prove that the entire runtime/model set is cached and can generate after the network seal. If any required asset was not cached during verification, strict mode will fail closed rather than silently fetch it.
+Verify & Seal:
+1. generates a harmless fixed test;
+2. seals service-worker cache misses;
+3. proves an uncached request is blocked;
+4. unloads all inference sessions;
+5. reloads model sessions from local browser cache while sealed;
+6. generates a second harmless fixed test.
 
-## Deployment
-Serve this repository over HTTPS with GitHub Pages. Open it in Safari, add it to the Home Screen, install/load the engine, then tap **Verify & Seal**.
+Personal prompts unlock only after all six operations succeed.
 
-After sealing, leaving the phone online is allowed from the app's perspective; Airplane Mode remains an independent test that the cached inference path is actually complete.
+## Status
+Candidate engine awaiting live iPhone validation.
