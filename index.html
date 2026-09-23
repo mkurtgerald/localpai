@@ -12,7 +12,7 @@
   script-src 'self' https://esm.sh 'wasm-unsafe-eval';
   style-src 'self' 'unsafe-inline';
   img-src 'self' blob: data:;
-  connect-src 'self' https://esm.sh https://huggingface.co https://*.huggingface.co https://*.hf.co https://*.xethub.hf.co https://*.xethub.com;
+  connect-src 'self' https:;
   worker-src 'self' blob: https://esm.sh;
   media-src 'none';
   object-src 'none';
@@ -55,7 +55,7 @@ label{font-size:12px;color:var(--muted)}input{width:100%;margin-top:6px;border:1
 </header>
 
 <section class="card">
-<div class="title"><strong>Privacy gate</strong><span class="small">v0.2 hardened</span></div>
+<div class="title"><strong>Privacy gate</strong><span class="small">v0.3 hardened</span></div>
 <div class="grid">
 <div class="stat"><span>WebGPU</span><b id="gpu">Checking…</b></div>
 <div class="stat"><span>Phone network</span><b id="net">Checking…</b></div>
@@ -101,5 +101,5 @@ label{font-size:12px;color:var(--muted)}input{width:100%;margin-top:6px;border:1
 
 <footer>Airplane Mode is optional for app-level egress protection after the seal; it remains a useful independent verification test.</footer>
 </main>
-<script type="module" src="./app.js"></script>
+<script type="module" src="./app.js?v=3"></script>
 </body></html>
